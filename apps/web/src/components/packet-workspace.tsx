@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatVisitDate } from "@/lib/format";
 import { reviewProgress, reviewState, type ReviewProgress } from "@/lib/review";
-import { AGENT_URL, supabase } from "@/lib/supabase";
+import { AGENT_IS_EXTERNAL, RUNS_ENDPOINT, supabase } from "@/lib/supabase";
 import type { Artifact, Encounter, Patient, Run, RunStep } from "@/lib/types";
 
 interface Props {
@@ -143,7 +143,7 @@ export function PacketWorkspace({
     setStarting(true);
     setStartError(null);
     try {
-      const res = await fetch(`${AGENT_URL}/runs`, {
+      const res = await fetch(RUNS_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ encounterId: encounter.id }),
@@ -174,8 +174,11 @@ export function PacketWorkspace({
       const message = error instanceof Error ? error.message : String(error);
       console.error("[mediHub] could not start run:", error);
       setStartError(
-        `${message}. Agent URL is ${AGENT_URL} — check that the agent server is ` +
-          `running (npm run dev:agent) and that this page's origin is in ALLOWED_ORIGINS.`,
+        AGENT_IS_EXTERNAL
+          ? `${message}. Requests go to ${RUNS_ENDPOINT} — check the agent server is ` +
+            `running and that this origin is listed in its ALLOWED_ORIGINS.`
+          : `${message}. The agent runs in this app at ${RUNS_ENDPOINT} — check the ` +
+            `server logs, and that SUPABASE_SERVICE_ROLE_KEY and GOOGLE_API_KEY are set.`,
       );
       toast.error("Could not start the agent", { description: message });
     } finally {

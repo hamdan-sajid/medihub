@@ -4,6 +4,13 @@
   "private": true,
   "type": "module",
   "main": "dist/server.js",
+  "//exports": "Compiled output, not source. The source uses Node ESM './run.js' specifiers, which bundlers cannot map back to .ts — so the web app consumes dist/ instead, built by its prebuild step.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",

@@ -4,11 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "//prebuild": "The agent package is consumed as compiled output. Invoked via tsc directly rather than `npm run --workspace` so it works from this directory, which is what Vercel builds from.",
+    "prebuild": "tsc -p ../agent/tsconfig.json",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "agent": "*",
     "@supabase/supabase-js": "^2.111.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

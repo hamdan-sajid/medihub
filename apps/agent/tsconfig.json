@@ -12,7 +12,9 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
-    "declaration": false,
+    // The web app imports this package's compiled output, so it needs the
+    // accompanying type declarations.
+    "declaration": true,
     "sourceMap": true
   },
   "include": ["src/**/*.ts"]

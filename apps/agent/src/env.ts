@@ -7,8 +7,15 @@ import { fileURLToPath } from "node:url";
 // Works from src/ under tsx and from dist/ after a build — both are one level
 // below the package root. Platform-provided vars already in the environment
 // win, which is what we want on Render.
-const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-config({ path: resolve(packageRoot, ".env"), quiet: true });
+// Bundlers rewrite import.meta.url, and hosted environments have no .env file
+// at all — both are fine, the platform supplies the variables directly. A
+// failure here must not stop the module loading.
+try {
+  const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  config({ path: resolve(packageRoot, ".env"), quiet: true });
+} catch {
+  config({ quiet: true });
+}
 
 /**
  * Read an optional variable, treating blank as unset. Hosting platforms often

@@ -205,30 +205,41 @@ This test exists because the reviewer failed the last two. See
 ## Architecture
 
 ```
-Browser ──POST /runs──▶ Agent server (Node, :8787)
-   ▲                          │
-   │                          │ writes steps + artifacts as it works
-   └──── Realtime ──── Supabase Postgres ◀────┘
+Browser ──POST /api/runs──▶ Next.js route handler (runs the agent)
+   ▲                             │
+   │                             │ writes steps + artifacts as it works
+   └──── Realtime ──── Supabase Postgres ◀──┘
 ```
 
-The only call from the frontend to the agent is `POST /runs`, which returns a
-`runId` immediately. Everything after that reaches the browser through Supabase
-Realtime.
+The only call that starts anything is `POST /api/runs`, which returns a `runId`
+immediately and schedules the agent with `after()`. Everything the browser sees
+afterwards arrives through Supabase Realtime.
+
+The agent is a self-contained package (`apps/agent`) with its own standalone
+server; the deployed app imports it and calls the same `executeRun`. Running it
+as a separate service is still one env var away — see
+[DEPLOY.md](DEPLOY.md#running-the-agent-separately).
 
 **Why this shape:** a deep agent run takes minutes. Streaming it over a single
 HTTP request means a refresh or a dropped connection loses the work. Writing
 progress to Postgres instead makes runs survive disconnects, gives the clinical
-audit trail you need anyway, and removes all streaming plumbing between the two
-services — the same rows drive the live view and the permanent record.
+audit trail you need anyway, and removes all streaming plumbing — the same rows
+drive the live view and the permanent record.
+
+It also turned out to be what made a single-service deployment possible. Both
+free agent hosts became unusable mid-build (Render started requiring a card,
+Koyeb closed its free tier after being acquired), and because the browser never
+holds a connection, the agent could move into a Vercel route handler unchanged.
 
 ```
 apps/
 ├── web/                      Next.js 16 + Tailwind + shadcn  →  Vercel
 │   └── src/
 │       ├── app/              encounter list, packet workspace
+│       │   └── api/runs/     the deployed agent entry point
 │       ├── components/       packet-workspace, run-trace, artifact-panes
 │       └── lib/              supabase client (anon key), types
-└── agent/                    Node + Hono + LangGraph          →  Render
+└── agent/                    the harness — imported by web, also runs standalone
     └── src/
         ├── prompts.ts        domain knowledge for all three agents
         ├── agent.ts          createDeepAgent + subagents
