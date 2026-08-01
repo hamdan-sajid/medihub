@@ -1,0 +1,32 @@
+# Render Blueprint for the mediHub agent server.
+#
+# Render's dashboard can read this directly (New → Blueprint), which avoids
+# hand-entering the build and start commands. Secrets are declared with
+# `sync: false` so Render prompts for them instead of storing them in the repo.
+services:
+  - type: web
+    name: medihub-agent
+    runtime: node
+    plan: free
+    # Build from the repo root so npm workspaces resolve, then compile the agent.
+    buildCommand: npm ci && npm run build --workspace agent
+    startCommand: npm run start --workspace agent
+    # Render's free tier spins down when idle. The health check both keeps
+    # deploys honest and gives you a URL to warm the instance before a demo.
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: MEDIHUB_PROVIDER
+        value: google
+      - key: GOOGLE_API_KEY
+        sync: false
+      # Comma-separated. Must include the Vercel production URL, and any preview
+      # URLs you intend to use — a missing origin here surfaces in the browser as
+      # the Generate button silently doing nothing.
+      - key: ALLOWED_ORIGINS
+        sync: false
