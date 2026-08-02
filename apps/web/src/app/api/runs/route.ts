@@ -1,4 +1,3 @@
-import { db, executeRun } from "agent";
 import { after, NextResponse } from "next/server";
 
 /**
@@ -28,6 +27,21 @@ export const runtime = "nodejs";
  */
 export const maxDuration = 300;
 
+/**
+ * Imported inside the handlers, not at module scope.
+ *
+ * The agent validates its environment when its modules load, and `next build`
+ * evaluates this module while collecting page data — so a top-level import made
+ * the build itself require runtime secrets, failing with "Failed to collect page
+ * data" if any were absent. Build time has no business needing an API key.
+ *
+ * Deferring the import means the app builds without secrets and a missing
+ * variable surfaces as a clear 500 on the first request instead.
+ */
+function loadAgent() {
+  return import("agent");
+}
+
 export async function POST(request: Request) {
   let body: { encounterId?: string };
   try {
@@ -39,6 +53,21 @@ export async function POST(request: Request) {
   const encounterId = body.encounterId;
   if (!encounterId) {
     return NextResponse.json({ error: "encounterId is required." }, { status: 400 });
+  }
+
+  let db: Awaited<ReturnType<typeof loadAgent>>["db"];
+  let executeRun: Awaited<ReturnType<typeof loadAgent>>["executeRun"];
+  try {
+    ({ db, executeRun } = await loadAgent());
+  } catch (error) {
+    // Almost always a missing environment variable. Say so plainly rather than
+    // letting it surface as an opaque 500.
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[mediHub] agent failed to initialise:", error);
+    return NextResponse.json(
+      { error: `Agent is not configured: ${message}` },
+      { status: 500 },
+    );
   }
 
   const { data: encounter } = await db
@@ -78,7 +107,13 @@ export async function POST(request: Request) {
   return NextResponse.json({ runId: run.id }, { status: 202 });
 }
 
+/** Health check. Also the quickest way to confirm a deployment's env vars. */
 export async function GET() {
-  const { env } = await import("agent");
-  return NextResponse.json({ ok: true, model: env.model });
+  try {
+    const { env } = await loadAgent();
+    return NextResponse.json({ ok: true, model: env.model });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
 }
